@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="sv" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Ärenden</title>
+</head>
+<body>
+    <h1>Ärenden</h1>
+
+    <p th:if="${message != null}" th:text="${message}" role="status"></p>
+
+    <p><a th:href="@{/tickets/new}">Nytt ärende</a></p>
+
+    <p th:if="${tickets.isEmpty()}">Det finns inga ärenden ännu.</p>
+
+    <table th:unless="${tickets.isEmpty()}">
+        <thead>
+            <tr>
+                <th scope="col">Rubrik</th>
+                <th scope="col">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="ticket : ${tickets}">
+                <td th:text="${ticket.title}"></td>
+                <td th:text="${ticket.status}"></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
