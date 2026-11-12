@@ -22,7 +22,7 @@
         </thead>
         <tbody>
             <tr th:each="ticket : ${tickets}">
-                <td th:text="${ticket.title}"></td>
+                <td><a th:href="@{/tickets/{id}(id=${ticket.id})}" th:text="${ticket.title}"></a></td>
                 <td th:text="${ticket.status}"></td>
             </tr>
         </tbody>

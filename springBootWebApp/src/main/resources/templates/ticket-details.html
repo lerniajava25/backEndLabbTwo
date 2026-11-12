@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="sv" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${ticket.title}">Ärende</title>
+</head>
+<body>
+    <h1 th:text="${ticket.title}">Ärendets rubrik</h1>
+    <p>Status: <span th:text="${ticket.status}"></span></p>
+
+    <h2>Beskrivning</h2>
+    <p th:text="${ticket.description}" style="white-space: pre-wrap;"></p>
+
+    <p><a th:href="@{/tickets}">Tillbaka till ärenden</a></p>
+</body>
+</html>
