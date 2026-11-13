@@ -8,6 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootApplication
 public class SpringBootWebAppApplication {
@@ -17,24 +18,12 @@ public class SpringBootWebAppApplication {
     }
 
     @Bean
-    CommandLineRunner createTestUser(UserRepository userRepository) {
-        return args -> {
-            if (userRepository.findByUsername("testuser").isEmpty()) {
-                // This test user has no usable password until login is added.
-                userRepository.save(new User("testuser", "!", "USER"));
-            }
-        };
-    }
-
-    @Bean
     CommandLineRunner createTestData(UserRepository userRepository,
-                                     TicketRepository ticketRepository) {
+                                     TicketRepository ticketRepository,
+                                     PasswordEncoder passwordEncoder) {
         return args -> {
-            User testUser = userRepository.findByUsername("testuser").orElse(null);
-
-            if (testUser == null) {
-                testUser = userRepository.save(new User("testuser", "!", "USER"));
-            }
+            User testUser = prepareTestAccount(userRepository, passwordEncoder, "testuser", "USER", "user-test-123");
+            prepareTestAccount(userRepository, passwordEncoder, "testagent", "AGENT", "agent-test-123");
 
             if (ticketRepository.count() == 0) {
                 Ticket ticket = new Ticket(
@@ -45,5 +34,18 @@ public class SpringBootWebAppApplication {
                 ticketRepository.save(ticket);
             }
         };
+    }
+
+    private User prepareTestAccount(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                                    String username, String role, String password) {
+        User account = userRepository.findByUsername(username).orElse(null);
+        if (account == null) {
+            return userRepository.save(new User(username, passwordEncoder.encode(password), role));
+        }
+        if ("!".equals(account.getPasswordHash())) {
+            account.setPasswordHash(passwordEncoder.encode(password));
+            return userRepository.save(account);
+        }
+        return account;
     }
 }

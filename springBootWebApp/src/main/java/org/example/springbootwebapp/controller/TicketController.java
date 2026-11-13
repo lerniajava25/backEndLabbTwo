@@ -1,7 +1,9 @@
 package org.example.springbootwebapp.controller;
 
+import org.example.springbootwebapp.entity.Comment;
 import org.example.springbootwebapp.entity.Ticket;
 import org.example.springbootwebapp.entity.User;
+import org.example.springbootwebapp.repository.CommentRepository;
 import org.example.springbootwebapp.repository.TicketRepository;
 import org.example.springbootwebapp.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -18,12 +20,18 @@ import java.util.List;
 
 @Controller
 public class TicketController {
+    private static final List<String> STATUSES = List.of(
+            "NEW", "IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED", "CLOSED");
+
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
 
-    public TicketController(TicketRepository ticketRepository, UserRepository userRepository) {
+    public TicketController(TicketRepository ticketRepository, UserRepository userRepository,
+                            CommentRepository commentRepository) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.commentRepository = commentRepository;
     }
 
     @GetMapping("/tickets")
@@ -40,10 +48,63 @@ public class TicketController {
 
     @GetMapping("/tickets/{id}")
     public String showTicketDetails(@PathVariable("id") Long id, Model model) {
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ärendet finns inte."));
-        model.addAttribute("ticket", ticket);
+        model.addAttribute("ticket", findTicket(id));
+        model.addAttribute("comments", commentRepository.findByTicket_IdOrderByIdAsc(id));
+        model.addAttribute("statuses", STATUSES);
         return "ticket-details";
+    }
+
+    @PostMapping("/tickets/{id}/assign")
+    public String assignTicket(@PathVariable("id") Long id) {
+        Ticket ticket = findTicket(id);
+        User agent = userRepository.findByUsername("testagent")
+                .filter(user -> "AGENT".equals(user.getRole()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Testagenten saknas."));
+        ticket.setAssignedAgent(agent);
+        ticketRepository.save(ticket);
+        return "redirect:/tickets/" + id;
+    }
+
+    @PostMapping("/tickets/{id}/status")
+    public String changeStatus(@PathVariable("id") Long id,
+                               @RequestParam("status") String status) {
+        Ticket ticket = findTicket(id);
+        if (!STATUSES.contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ogiltig status.");
+        }
+        ticket.setStatus(status);
+        ticketRepository.save(ticket);
+        return "redirect:/tickets/" + id;
+    }
+
+    @PostMapping("/tickets/{id}/comments")
+    public String addComment(@PathVariable("id") Long id,
+                             @RequestParam(name = "text", defaultValue = "") String text,
+                             RedirectAttributes redirectAttributes) {
+        Ticket ticket = findTicket(id);
+        String redirect = "redirect:/tickets/" + id;
+        String commentText = text.strip();
+
+        if (commentText.isEmpty() || commentText.length() > 4000) {
+            redirectAttributes.addFlashAttribute("commentError", "Skriv en kommentar på högst 4 000 tecken.");
+            redirectAttributes.addFlashAttribute("commentText", text);
+            return redirect;
+        }
+
+        User author = userRepository.findByUsername("testuser").orElse(null);
+        if (author == null) {
+            redirectAttributes.addFlashAttribute("commentError", "Testanvändaren saknas. Kommentaren kunde inte sparas.");
+            redirectAttributes.addFlashAttribute("commentText", text);
+            return redirect;
+        }
+
+        commentRepository.save(new Comment(commentText, author, ticket));
+        return redirect;
+    }
+
+    private Ticket findTicket(Long id) {
+        return ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ärendet finns inte."));
     }
 
     @PostMapping("/tickets")

@@ -7,9 +7,45 @@
 <body>
     <h1 th:text="${ticket.title}">Ärendets rubrik</h1>
     <p>Status: <span th:text="${ticket.status}"></span></p>
+    <p>Ansvarig agent:
+        <span th:text="${ticket.assignedAgent == null ? 'Ingen' : ticket.assignedAgent.username}"></span>
+    </p>
+
+    <form th:action="@{/tickets/{id}/assign(id=${ticket.id})}" method="post">
+        <button type="submit">Ta ärendet</button>
+    </form>
+
+    <form th:action="@{/tickets/{id}/status(id=${ticket.id})}" method="post">
+        <label for="status">Ändra status</label>
+        <select id="status" name="status">
+            <option th:each="status : ${statuses}"
+                    th:value="${status}"
+                    th:text="${status}"
+                    th:selected="${status == ticket.status}"></option>
+        </select>
+        <button type="submit">Spara status</button>
+    </form>
 
     <h2>Beskrivning</h2>
     <p th:text="${ticket.description}" style="white-space: pre-wrap;"></p>
+
+    <h2>Kommentarer</h2>
+    <p th:if="${comments.isEmpty()}">Det finns inga kommentarer ännu.</p>
+    <ul th:unless="${comments.isEmpty()}">
+        <li th:each="comment : ${comments}">
+            <strong th:text="${comment.author.username}"></strong>
+            <p th:text="${comment.text}" style="white-space: pre-wrap;"></p>
+        </li>
+    </ul>
+
+    <p th:if="${commentError != null}" th:text="${commentError}" role="alert"></p>
+    <form th:action="@{/tickets/{id}/comments(id=${ticket.id})}" method="post">
+        <p>
+            <label for="comment">Din kommentar</label><br>
+            <textarea id="comment" name="text" rows="4" maxlength="4000" required th:text="${commentText}"></textarea>
+        </p>
+        <button type="submit">Lägg till kommentar</button>
+    </form>
 
     <p><a th:href="@{/tickets}">Tillbaka till ärenden</a></p>
 </body>
