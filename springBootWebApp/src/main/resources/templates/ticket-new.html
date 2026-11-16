@@ -2,9 +2,13 @@
 <html lang="sv" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" th:href="@{/css/helpdesk.css}">
     <title>Nytt ärende</title>
 </head>
 <body>
+<header><a th:href="@{/tickets}">Helpdesk</a></header>
+<main>
     <h1>Nytt ärende</h1>
 
     <p th:if="${error != null}" th:text="${error}" role="alert"></p>
@@ -22,5 +26,6 @@
     </form>
 
     <p><a th:href="@{/tickets}">Tillbaka till ärenden</a></p>
+</main>
 </body>
 </html>

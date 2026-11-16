@@ -1,5 +1,6 @@
 package org.example.springbootwebapp.config;
 
+import jakarta.servlet.DispatcherType;
 import org.example.springbootwebapp.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,9 +17,12 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-                .formLogin(login -> login.defaultSuccessUrl("/tickets").permitAll())
-                .logout(logout -> logout.logoutSuccessUrl("/login?logout").permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers("/css/helpdesk.css").permitAll()
+                        .anyRequest().authenticated())
+                .formLogin(login -> login.loginPage("/login").defaultSuccessUrl("/tickets", true).permitAll())
+                .logout(logout -> logout.logoutSuccessUrl("/login").permitAll())
                 .build();
     }
 

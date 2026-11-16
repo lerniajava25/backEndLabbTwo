@@ -2,18 +2,22 @@
 <html lang="sv" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" th:href="@{/css/helpdesk.css}">
     <title>Ärenden</title>
 </head>
 <body>
-    <h1>Ärenden</h1>
-
-    <form th:action="@{/logout}" method="post">
-        <button type="submit">Logga ut</button>
-    </form>
+<header><a th:href="@{/tickets}">Helpdesk</a></header>
+<main>
+    <div class="toolbar">
+        <h1>Ärenden</h1>
+        <a class="button" th:href="@{/tickets/new}">Nytt ärende</a>
+        <form th:action="@{/logout}" method="post">
+            <button class="secondary" type="submit">Logga ut</button>
+        </form>
+    </div>
 
     <p th:if="${message != null}" th:text="${message}" role="status"></p>
-
-    <p><a th:href="@{/tickets/new}">Nytt ärende</a></p>
 
     <p th:if="${tickets.isEmpty()}">Det finns inga ärenden ännu.</p>
 
@@ -27,9 +31,10 @@
         <tbody>
             <tr th:each="ticket : ${tickets}">
                 <td><a th:href="@{/tickets/{id}(id=${ticket.id})}" th:text="${ticket.title}"></a></td>
-                <td th:text="${ticket.status}"></td>
+                <td><span class="status" th:text="${ticket.status}"></span></td>
             </tr>
         </tbody>
     </table>
+</main>
 </body>
 </html>

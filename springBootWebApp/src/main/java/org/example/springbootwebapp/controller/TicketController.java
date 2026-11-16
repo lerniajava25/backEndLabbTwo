@@ -7,6 +7,7 @@ import org.example.springbootwebapp.repository.CommentRepository;
 import org.example.springbootwebapp.repository.TicketRepository;
 import org.example.springbootwebapp.repository.UserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,8 +36,11 @@ public class TicketController {
     }
 
     @GetMapping("/tickets")
-    public String showTickets(Model model) {
-        List<Ticket> tickets = ticketRepository.findAll();
+    public String showTickets(Authentication authentication, Model model) {
+        User user = findLoggedInUser(authentication);
+        List<Ticket> tickets = isAgent(user)
+                ? ticketRepository.findAll()
+                : ticketRepository.findByCreator_Id(user.getId());
         model.addAttribute("tickets", tickets);
         return "tickets";
     }
@@ -47,19 +51,20 @@ public class TicketController {
     }
 
     @GetMapping("/tickets/{id}")
-    public String showTicketDetails(@PathVariable("id") Long id, Model model) {
-        model.addAttribute("ticket", findTicket(id));
+    public String showTicketDetails(@PathVariable("id") Long id, Authentication authentication, Model model) {
+        User user = findLoggedInUser(authentication);
+        model.addAttribute("ticket", findAccessibleTicket(id, user));
+        model.addAttribute("agent", isAgent(user));
         model.addAttribute("comments", commentRepository.findByTicket_IdOrderByIdAsc(id));
         model.addAttribute("statuses", STATUSES);
         return "ticket-details";
     }
 
     @PostMapping("/tickets/{id}/assign")
-    public String assignTicket(@PathVariable("id") Long id) {
+    public String assignTicket(@PathVariable("id") Long id, Authentication authentication) {
+        User agent = requireAgent(authentication);
+
         Ticket ticket = findTicket(id);
-        User agent = userRepository.findByUsername("testagent")
-                .filter(user -> "AGENT".equals(user.getRole()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Testagenten saknas."));
         ticket.setAssignedAgent(agent);
         ticketRepository.save(ticket);
         return "redirect:/tickets/" + id;
@@ -67,7 +72,8 @@ public class TicketController {
 
     @PostMapping("/tickets/{id}/status")
     public String changeStatus(@PathVariable("id") Long id,
-                               @RequestParam("status") String status) {
+                               @RequestParam("status") String status, Authentication authentication) {
+        requireAgent(authentication);
         Ticket ticket = findTicket(id);
         if (!STATUSES.contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ogiltig status.");
@@ -80,20 +86,14 @@ public class TicketController {
     @PostMapping("/tickets/{id}/comments")
     public String addComment(@PathVariable("id") Long id,
                              @RequestParam(name = "text", defaultValue = "") String text,
-                             RedirectAttributes redirectAttributes) {
-        Ticket ticket = findTicket(id);
+                             Authentication authentication, RedirectAttributes redirectAttributes) {
+        User author = findLoggedInUser(authentication);
+        Ticket ticket = findAccessibleTicket(id, author);
         String redirect = "redirect:/tickets/" + id;
         String commentText = text.strip();
 
         if (commentText.isEmpty() || commentText.length() > 4000) {
             redirectAttributes.addFlashAttribute("commentError", "Skriv en kommentar på högst 4 000 tecken.");
-            redirectAttributes.addFlashAttribute("commentText", text);
-            return redirect;
-        }
-
-        User author = userRepository.findByUsername("testuser").orElse(null);
-        if (author == null) {
-            redirectAttributes.addFlashAttribute("commentError", "Testanvändaren saknas. Kommentaren kunde inte sparas.");
             redirectAttributes.addFlashAttribute("commentText", text);
             return redirect;
         }
@@ -107,10 +107,30 @@ public class TicketController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ärendet finns inte."));
     }
 
+    private Ticket findAccessibleTicket(Long id, User user) {
+        Ticket ticket = findTicket(id);
+        if (!isAgent(user) && !user.getId().equals(ticket.getCreator().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Du har inte åtkomst till ärendet.");
+        }
+        return ticket;
+    }
+
+    private boolean isAgent(User user) {
+        return "AGENT".equals(user.getRole());
+    }
+
+    private User requireAgent(Authentication authentication) {
+        User user = findLoggedInUser(authentication);
+        if (!isAgent(user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Åtgärden kräver rollen AGENT.");
+        }
+        return user;
+    }
+
     @PostMapping("/tickets")
     public String createTicket(@RequestParam(name = "title", defaultValue = "") String title,
                                @RequestParam(name = "description", defaultValue = "") String description,
-                               Model model, RedirectAttributes redirectAttributes) {
+                               Authentication authentication, Model model, RedirectAttributes redirectAttributes) {
         model.addAttribute("title", title);
         model.addAttribute("description", description);
 
@@ -124,15 +144,15 @@ public class TicketController {
             return "ticket-new";
         }
 
-        User creator = userRepository.findByUsername("testuser").orElse(null);
-        if (creator == null) {
-            model.addAttribute("error", "Testanvändaren saknas. Ärendet kunde inte sparas.");
-            return "ticket-new";
-        }
-
+        User creator = findLoggedInUser(authentication);
         Ticket ticket = new Ticket(title.strip(), description.strip(), creator);
         ticketRepository.save(ticket);
         redirectAttributes.addFlashAttribute("message", "Ärendet skapades.");
         return "redirect:/tickets";
+    }
+
+    private User findLoggedInUser(Authentication authentication) {
+        return userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Användarkontot finns inte."));
     }
 }
